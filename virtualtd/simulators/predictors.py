@@ -78,6 +78,79 @@ class DevelopmentPredictor:
 
 
 class MatchPredictor:
+    """Predictor class for predicting the probabilities of a match result in terms on win, draw, loose.
 
-    def __init__(self):
-        ...
+    Extra Information:
+    -----------------
+    When the skill level of both teams is equal, both teams have 1 in 3 win probability, and there is a 1 in 3 draw
+    probability. The distribution of probabilities chances once the skill differential between both teams chances:
+        - The draw probability is changed based on the skill differential between both teams:
+            draw (%) = abs(skill_a/100 - skill_b/100) * _draw_prob
+        - The win probability of both teams is generated from the remaining 100 - draw point
+            if draw (%) = 30, the combined win probability of either team A or B winning is 70%.
+        - The win probability is distributed over both teams based on the skill differential.
+            if a team of skill 70 plays a team of skill 60, the team of skill 70 is 50 + (70-60) % likely to win.
+        - The win probability is then distributed based on the generated ratios (in this case 60-40).
+
+    Parameters:
+    ----------
+    skill_team_a: float
+        Skill level of team A in range (0-100).
+    skill_team_b: float
+        Skill level of team B in range (0-100).
+
+    Methods:
+    -------
+    generate_prob_distribution()
+        Predict the probability of every result class.
+
+    Example:
+    -------
+    If for example team A with skill 80 plays team B with skill 40:
+        - The draw probability is abs(80/100 - 40/100) * (100/3) = 13.33%
+        - The combined win probability over both teams equals 100 - 13.3 or 86.66%
+        - Team A has 50 + (80-40) = 90% chance of winning over team B (which has a 10% chance).
+        - The resulting win probability of Team A equals 90% of 86.66% or 78%, and that of Team B 8.66.
+
+    """
+    def __init__(self, skill_team_a: float, skill_team_b: float):
+        """Inits MatchPredictor with the skill level of both competing line-ups."""
+        self._skill_a = skill_team_a
+        self._skill_b = skill_team_b
+        self._win_prob_a = 100 / 3
+        self._draw_prob = 100 / 3
+        self._win_prob_b = 100 / 3
+
+    def _set_draw_probability(self):
+        """Set the draw probability."""
+        draw = abs(self._skill_a/100 - self._skill_b/100)
+        self._draw_prob *= draw
+
+    def _set_win_probability(self):
+        """Set the win probabilities for both teams."""
+        combined_win_prob = 100 - self._draw_prob
+        team_a_win_share = 50 + (self._skill_a - self._skill_b)
+        team_b_win_share = 50 + (self._skill_b - self._skill_a)
+
+        self._win_prob_a = team_a_win_share/100 * combined_win_prob
+        self._win_prob_b = team_b_win_share/100 * combined_win_prob
+
+    @property
+    def home_team_win_prob(self) -> float:
+        """Probability that the home team wins the match."""
+        return self._win_prob_a
+
+    @property
+    def away_team_win_prob(self) -> float:
+        """Probability that the away team wins the match."""
+        return self._win_prob_b
+
+    @property
+    def draw_prob(self) -> float:
+        """Probability that match returns in a draw."""
+        return self._draw_prob
+
+    def generate_prob_distribution(self):
+        """Predict the probability of every result class."""
+        self._set_draw_probability()
+        self._set_win_probability()

@@ -60,6 +60,8 @@ class Player:
         Financial value (€) of the player based on a simplified model.
     squad_hierarchy: SquadHierarchy
         Hierarchical role in the squad.
+    injury_proneness: float
+        Probability (0-1) that a player is injured and not available for a match.
     """
     player_name: str
     contract_years: float
@@ -69,6 +71,7 @@ class Player:
     potential_level: float
     player_value: float
     squad_hierarchy: SquadHierarchy
+    injury_proneness: float
 
 
 @dataclass

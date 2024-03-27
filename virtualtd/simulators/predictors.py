@@ -1,3 +1,11 @@
+import random
+from typing import List
+
+import pandas as pd
+
+from virtualtd.simulators.model import CoachInstruction
+from virtualtd.generators.model import Position
+from virtualtd.generators.model import SquadHierarchy
 
 
 class ValuePredictor:
@@ -32,12 +40,14 @@ class ValuePredictor:
     create_league() -> League
         Create a synthetic league using the provided settings.
     """
+
     def __init__(
             self,
             player_age: float,
             contract_years: float,
             skill_level: float,
             potential: float,
+            injury: float,
             base_value: int = 1000
     ):
         """Inits ValuePredictor with an age, contract, skill level, potential and a base value."""
@@ -45,12 +55,16 @@ class ValuePredictor:
         self._contract = contract_years
         self._skill = skill_level
         self._potential = potential
+        self._injury = injury
         self._base_value = base_value
 
     def _get_contract_multiplier(self) -> float:
         """Get the contract multiplier based on the assumption that a longer contract adds value."""
         self._contract = int(self._contract * 12)
-        return 1 + 36 / self._contract
+        if self._contract > 0:
+            return 1 + 36 / self._contract
+        else:
+            return 0.0
 
     def _get_age_multiplier(self) -> float:
         """Get the age multiplier based on the assumption that the prima age is 27."""
@@ -65,16 +79,69 @@ class ValuePredictor:
         val = self._potential ** 2 * self._base_value
         return 0.5 * (val - self._get_skill_value())
 
+    def _get_injury_multiplier(self):
+        """Get the injury proneness multiplier."""
+        return 1 - self._injury
+
     def predict_player_value(self) -> float:
         """Predict the resulting player value."""
         value = self._get_skill_value() + self._get_potential_value()
-        return value * self._get_age_multiplier() * self._get_contract_multiplier()
+        return value * self._get_age_multiplier() * self._get_contract_multiplier() * self._get_injury_multiplier()
 
 
-class DevelopmentPredictor:
+class LineUpPredictor:
+    """Predictor class to get the line-up for a team.
 
-    def __init__(self):
-        ...
+    Extra Information:
+    -----------------
+    Takes the coach instruction coming from the virtual TD as input and generates a line-up of eleven players based
+    on the probability that the starter, sub or academy player will play.
+
+    Parameters:
+    ----------
+    config: CoachInstruction
+        Instruction for the coach with parameters that influence the option distribution.
+    df_squad_players: pd.DataFrame
+        All players in a squad that can be in the line-up.
+
+    Methods:
+    -------
+    get_set_line_up() -> pd.DataFrame
+        Get the line-up for a team based on the option distribution.
+    """
+    def __init__(self, config: CoachInstruction, df_squad_players: pd.DataFrame):
+        """Inits LineUpPredictor with a coach instruction and squad to get the line-up from."""
+        self._params = config
+        self._squad_players = df_squad_players.copy()
+        self._option_distribution = self._generate_option_distribution()
+
+    def _generate_option_distribution(self) -> List[SquadHierarchy]:
+        """Generate a distribution with 100 choices based on the provided coach instruction."""
+        option_distribution = []
+        for i in range(0, self._params.starter_match_share, 1):
+            option_distribution.append(SquadHierarchy.STARTER)
+        for i in range(0, self._params.sub_match_share, 1):
+            option_distribution.append(SquadHierarchy.SUB)
+        for i in range(0, self._params.academy_match_share, 1):
+            option_distribution.append(SquadHierarchy.ACADEMY)
+
+        return option_distribution
+
+    def _set_line_up_player(self, position: Position):
+        """Draw a player from the squad for a given position based on the hierarchy option distribution."""
+        hierarchy = random.choice(self._option_distribution)
+        self._squad_players.loc[
+            (self._squad_players['position'] == position) &
+            (self._squad_players['squad_hierarchy'] == hierarchy), 'line_up_player'
+        ] = True
+
+    def get_set_line_up(self) -> pd.DataFrame:
+        """Get the line-up for a team based on the option distribution."""
+        self._squad_players.loc[:, 'line_up_player'] = False
+        for position in Position:
+            self._set_line_up_player(position)
+
+        return self._squad_players[self._squad_players['line_up_player']]
 
 
 class MatchPredictor:
@@ -113,6 +180,7 @@ class MatchPredictor:
         - The resulting win probability of Team A equals 90% of 86.66% or 78%, and that of Team B 8.66.
 
     """
+
     def __init__(self, skill_team_a: float, skill_team_b: float):
         """Inits MatchPredictor with the skill level of both competing line-ups."""
         self._skill_a = skill_team_a
@@ -123,7 +191,7 @@ class MatchPredictor:
 
     def _set_draw_probability(self):
         """Set the draw probability."""
-        draw = abs(self._skill_a/100 - self._skill_b/100)
+        draw = abs(self._skill_a / 100 - self._skill_b / 100)
         self._draw_prob *= draw
 
     def _set_win_probability(self):
@@ -132,8 +200,8 @@ class MatchPredictor:
         team_a_win_share = 50 + (self._skill_a - self._skill_b)
         team_b_win_share = 50 + (self._skill_b - self._skill_a)
 
-        self._win_prob_a = team_a_win_share/100 * combined_win_prob
-        self._win_prob_b = team_b_win_share/100 * combined_win_prob
+        self._win_prob_a = team_a_win_share / 100 * combined_win_prob
+        self._win_prob_b = team_b_win_share / 100 * combined_win_prob
 
     @property
     def home_team_win_prob(self) -> float:

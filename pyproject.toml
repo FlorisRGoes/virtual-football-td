@@ -2,7 +2,9 @@
 requires = [
     "setuptools>=68.0",
     "randomname>=0.2.1",
-    "names>=0.3.0"
+    "names>=0.3.0",
+    "pandas>=2.2.1",
+    "numpy>=1.26.4",
 ]
 build-backend = "setuptools.build_meta"
 

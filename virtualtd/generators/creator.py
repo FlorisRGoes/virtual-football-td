@@ -277,9 +277,18 @@ class PlayerGenerator:
         return PotentialConstraint(age, skill_level, self._strength_sd).get_potential()
 
     @staticmethod
-    def _set_player_value(contract_years: float, age: float, skill: float, potential: float) -> float:
+    def _set_player_value(contract_years: float, age: float, skill: float, potential: float, injury: float) -> float:
         """Set the player estimated transfer value."""
-        return ValuePredictor(age, contract_years, skill, potential).predict_player_value()
+        return ValuePredictor(age, contract_years, skill, potential, injury).predict_player_value()
+
+    @staticmethod
+    def _get_injury_proneness() -> float:
+        """Randomly generate a player's proneness to injury."""
+        risk = random.normalvariate(0.05, 0.02)
+        if risk < 0:
+            risk = 0.01
+
+        return risk
 
     def create_player(self) -> Player:
         """Create a synthetic player using the provided settings."""
@@ -287,6 +296,7 @@ class PlayerGenerator:
         age = self._set_age()
         skill_level = self._set_skill_level()
         potential_level = self._set_potential_level(age, skill_level)
+        injury = self._get_injury_proneness()
 
         return Player(
             player_name=self.get_player_name(),
@@ -295,6 +305,111 @@ class PlayerGenerator:
             position=self._profile[0],
             skill_level=skill_level,
             potential_level=potential_level,
-            player_value=self._set_player_value(contract_years, age, skill_level, potential_level),
+            player_value=self._set_player_value(contract_years, age, skill_level, potential_level, injury),
             squad_hierarchy=self._profile[1],
+            injury_proneness=injury
         )
+
+
+class TransferMarktGenerator:
+    """Generator class for creating a transfer mark with random players that can be bought.
+
+    Parameters:
+    ----------
+    occupied_names: List[str]
+        List of player names already taken to prevent duplicate player names in a single competition.
+
+    Methods:
+    -------
+    generate_transfermarkt(self, n_players: int = 10000) -> List[Player].
+        Generate a transfermarkt of n players.
+    """
+    def __init__(self, occupied_names: List[str]):
+        """Inits TransferMarktGenerator with a list of occupied names."""
+        self._player_names = occupied_names
+
+    @staticmethod
+    def _get_player_position() -> Position:
+        """Randomly generate a position"""
+        choices = [position for position in Position]
+        return random.choice(choices)
+
+    @staticmethod
+    def _get_player_hierarchy():
+        """Randomly generate a hierarchy"""
+        choices = [role for role in SquadHierarchy]
+        return random.choice(choices)
+
+    def get_player_name(self, gender: str = 'male') -> str:
+        """Get a randomly generated player name."""
+        player_name = names.get_full_name(gender=gender)
+        while player_name in self._player_names:
+            player_name = names.get_full_name(gender=gender)
+
+        return player_name
+
+    @staticmethod
+    def _set_contract_years(hierarchy: SquadHierarchy) -> int:
+        """Set the number of contract years for a player."""
+        if hierarchy in [SquadHierarchy.STARTER, SquadHierarchy.SUB]:
+            return ContractConstraint().get_regular_contract()
+        else:
+            return ContractConstraint().get_academy_contract()
+
+    @staticmethod
+    def _set_age(hierarchy: SquadHierarchy) -> float:
+        """Randomly generates the age of a player based on the provided squad hierarchy."""
+        if hierarchy in [SquadHierarchy.STARTER, SquadHierarchy.SUB]:
+            return AgeConstraint().get_regular_age()
+        else:
+            return AgeConstraint().get_academy_age()
+
+    @staticmethod
+    def _set_skill_level() -> float:
+        """Randomly assign a skill level to a player based on its profile and team specifics."""
+        return SkillConstraint(50, 25).get_academy_skill()
+
+    @staticmethod
+    def _set_potential_level(age: float, skill_level: float) -> float:
+        """Set the potential level for a player."""
+        return PotentialConstraint(age, skill_level, 25).get_potential()
+
+    @staticmethod
+    def _set_player_value(contract_years: float, age: float, skill: float, potential: float, injury: float) -> float:
+        """Set the player estimated transfer value."""
+        return ValuePredictor(age, contract_years, skill, potential, injury).predict_player_value()
+
+    @staticmethod
+    def _get_injury_proneness() -> float:
+        """Randomly generate a player's proneness to injury."""
+        risk = random.normalvariate(0.05, 0.02)
+        if risk < 0:
+            risk = 0.01
+
+        return risk
+
+    def _create_player(self):
+        """Create a random player for the transfermarkt."""
+        position = self._get_player_position()
+        role = self._get_player_hierarchy()
+        contract_years = self._set_contract_years(role)
+        age = self._set_age(role)
+        skill_level = self._set_skill_level()
+        potential_level = self._set_potential_level(age, skill_level)
+        injury = self._get_injury_proneness()
+
+        return Player(
+            player_name=self.get_player_name(),
+            contract_years=contract_years,
+            age=age,
+            position=position,
+            skill_level=skill_level,
+            potential_level=potential_level,
+            player_value=self._set_player_value(contract_years, age, skill_level, potential_level, injury),
+            squad_hierarchy=role,
+            injury_proneness=injury
+        )
+
+    def generate_transfermarkt(self, n_players: int = 10000) -> List[Player]:
+        """Generate a transfermarkt of n players."""
+        return [self._create_player() for _ in range(n_players)]

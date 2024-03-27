@@ -1,0 +1,42 @@
+[build-system]
+requires = [
+    "setuptools>=68.0",
+    "randomname>=0.2.1",
+    "names>=0.3.0",
+    "pandas>=2.2.1",
+    "numpy>=1.26.4",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virtualtd"
+dynamic = ["version"]
+authors = [
+  { name="Floris Goes-Smit, PhD", email="f.goes@scisports.com" },
+]
+dependencies = [
+]
+description = "An Open-Source simulator for the SciSports Squad Management use-case part of the TUPLES.ai project."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent",
+    "Development Status :: 1 - Planning",
+]
+keywords = [
+    "football",
+    "soccer",
+    "machinelearning",
+    "sports",
+    "analytics",
+    "research",
+    "simulation"
+]
+
+[project.urls]
+Homepage = "https://tuples.ai/"

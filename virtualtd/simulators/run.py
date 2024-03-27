@@ -297,10 +297,11 @@ class DecisionSimulator:
         """Automatically terminates players who don't have a contract or who passed the age threshold."""
         gross_value = self._players['player_value'].sum()
         squad_size = len(self._players)
+        print(self._players[self._players['contract_years'] == 0.0])
         self._players = self._players[
             (self._players['contract_years'] > 0) &
             (self._players['age'] < 35)
-            ]
+            ].copy()
         print(f"{squad_size - len(self._players)} out of {squad_size} players were auto-terminated because of age or contract.")
         print(f"You lost {gross_value - self._players['player_value'].sum()} Euro because of auto-termination.")
         self._auto_terminate_academy_players()
